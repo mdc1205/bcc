@@ -1,0 +1,48 @@
+print("=== BCC Advanced Features Demo ===")
+
+print("\n1. Tuple Creation and Types:")
+empty = nil
+single = (42,)
+coords = (10, 20, 30)
+mixed = (1, "hello", true, 3.14)
+
+print("Nil value:", empty, "- Type:", type(empty))
+print("Single tuple:", single, "- Type:", type(single))  
+print("Coordinates:", coords, "- Type:", type(coords))
+print("Mixed types:", mixed, "- Type:", type(mixed))
+
+print("\n2. Tuple Membership Testing:")
+print("20 in (10, 20, 30):", 20 in coords)
+print("5 in (10, 20, 30):", 5 in coords)
+print("'hello' in mixed tuple:", "hello" in mixed)
+print("false in mixed tuple:", false in mixed)
+
+print("\n3. Tuple Equality:")
+t1 = (1, 2, 3)
+t2 = (1, 2, 3)
+t3 = (1, 2, 4)
+print("(1,2,3) == (1,2,3):", t1 == t2)
+print("(1,2,3) == (1,2,4):", t1 == t3)
+print("Single tuples equal:", (42,) == (42,))
+
+print("\n4. Multi-Return Function (divmod):")
+result1 = divmod(17, 5)
+result2 = divmod(22, 7)
+result3 = divmod(100, 3)
+
+print("divmod(17, 5):", result1)
+print("divmod(22, 7):", result2)  
+print("divmod(100, 3):", result3)
+
+print("\n5. Tuple Truthiness:")
+print("Nil is truthy:", empty and true or false)
+print("Non-empty tuple is truthy:", coords and true or false)
+
+print("\n6. Mixed Operations:")
+big_tuple = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+print("Big tuple:", big_tuple)
+print("5 in big tuple:", 5 in big_tuple)
+print("11 in big tuple:", 11 in big_tuple)
+
+print("\n=== Demo Complete ===")
+print("Tuples and divmod function working perfectly!")

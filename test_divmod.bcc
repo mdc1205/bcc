@@ -1,0 +1,2 @@
+result1 = divmod(17, 5)
+print(result1)

@@ -179,10 +179,32 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr, BccError> {
+        // First, try to parse comma-separated variables (for multi-assignment)
+        // We need to look ahead to see if this is multi-assignment
+        let checkpoint = self.current;
+        
+        // Try to parse as multi-assignment pattern: var, var, ... = expr
+        if let Ok(targets) = self.try_parse_assignment_targets() {
+            if self.check(&TokenType::Equal) {
+                // This is indeed multi-assignment
+                self.advance(); // consume '='
+                let value = self.assignment()?;
+                let end_span = self.previous().span.end;
+                let start_span = targets.first().unwrap().span().start;
+                
+                return Ok(Expr::MultiAssign {
+                    targets,
+                    value: Box::new(value),
+                    span: Span::new(start_span, end_span),
+                });
+            }
+        }
+        
+        // Backtrack and parse as regular expression
+        self.current = checkpoint;
         let expr = self.or()?;
 
         if self.match_types(&[TokenType::Equal]) {
-            let equals = self.previous().clone();
             let value = self.assignment()?;
 
             // Check if it's a single variable assignment
@@ -194,44 +216,71 @@ impl Parser {
                 });
             }
 
-            // Check if it's a tuple for multi-assignment: a, b, c = expr
-            if let Expr::Tuple { elements, span } = expr {
-                let mut targets = Vec::new();
-                
-                for element in elements {
-                    match element {
-                        Expr::Variable { name, span } => {
-                            if name == "_" {
-                                targets.push(crate::ast::AssignTarget::Ignore { span });
-                            } else {
-                                targets.push(crate::ast::AssignTarget::Variable { name, span });
-                            }
-                        }
-                        _ => {
-                            return Err(BccError::parse_error_with_help(
-                                element.span().clone(),
-                                "Invalid assignment target in multi-assignment".to_string(),
-                                "Multi-assignment targets must be variables or underscores. Example: 'a, b, _ = expr'".to_string(),
-                            ));
-                        }
-                    }
-                }
-
-                return Ok(Expr::MultiAssign {
-                    targets,
-                    value: Box::new(value),
-                    span: Span::new(span.start, self.previous().span.end),
-                });
-            }
-
             return Err(BccError::parse_error_with_help(
-                equals.span,
+                expr.span().clone(),
                 "Invalid assignment target".to_string(),
-                "Only variables and tuples can be assigned to. Examples: 'x = 10' or 'a, b = expr'".to_string(),
+                "Assignment target must be a variable or comma-separated variables. Examples: 'x = 10' or 'a, b = expr'".to_string(),
             ));
         }
 
         Ok(expr)
+    }
+    
+    fn try_parse_assignment_targets(&mut self) -> Result<Vec<crate::ast::AssignTarget>, BccError> {
+        let mut targets = Vec::new();
+        
+        // Parse first target
+        if self.check(&TokenType::Identifier) {
+            let token = self.advance();
+            if token.lexeme == "_" {
+                targets.push(crate::ast::AssignTarget::Ignore { span: token.span.clone() });
+            } else {
+                targets.push(crate::ast::AssignTarget::Variable { 
+                    name: token.lexeme.clone(), 
+                    span: token.span.clone() 
+                });
+            }
+        } else {
+            return Err(BccError::parse_error_with_help(
+                self.peek().span.clone(),
+                "Expected variable name".to_string(),
+                "Assignment targets must be variable names or underscores".to_string(),
+            ));
+        }
+        
+        // Parse additional comma-separated targets
+        while self.check(&TokenType::Comma) {
+            self.advance(); // consume comma
+            
+            if self.check(&TokenType::Identifier) {
+                let token = self.advance();
+                if token.lexeme == "_" {
+                    targets.push(crate::ast::AssignTarget::Ignore { span: token.span.clone() });
+                } else {
+                    targets.push(crate::ast::AssignTarget::Variable { 
+                        name: token.lexeme.clone(), 
+                        span: token.span.clone() 
+                    });
+                }
+            } else {
+                return Err(BccError::parse_error_with_help(
+                    self.peek().span.clone(),
+                    "Expected variable name after comma".to_string(),
+                    "Multi-assignment targets must be variable names or underscores".to_string(),
+                ));
+            }
+        }
+        
+        // Only return success if we have multiple targets (multi-assignment)
+        if targets.len() > 1 {
+            Ok(targets)
+        } else {
+            Err(BccError::parse_error_with_help(
+                self.peek().span.clone(),
+                "Single target doesn't need comma".to_string(),
+                "Use regular assignment for single variables".to_string(),
+            ))
+        }
     }
 
     fn or(&mut self) -> Result<Expr, BccError> {
@@ -496,7 +545,7 @@ impl Parser {
                 // Check for keyword argument: identifier=expression
                 if self.check(&TokenType::Identifier) {
                     let checkpoint = self.current;
-                    let name_token = self.advance();
+                    let name_token = self.advance().clone();
                     
                     if self.match_types(&[TokenType::Equal]) {
                         // This is a keyword argument
@@ -663,16 +712,42 @@ impl Parser {
                     ));
                 }
                 
-                let expr = self.expression()?;
+                // Parse potential tuple: (a, b, c) or grouping: (a)
+                let mut elements = Vec::new();
+                elements.push(self.expression()?);
+                
+                // Check if this is a tuple (has commas) or just a grouping
+                let mut is_tuple = false;
+                while self.match_types(&[TokenType::Comma]) {
+                    is_tuple = true;
+                    
+                    // Allow trailing commas in tuples: (a, b,)
+                    if self.check(&TokenType::RightParen) {
+                        break;
+                    }
+                    
+                    elements.push(self.expression()?);
+                }
+                
                 let end_token = self.consume_with_help(
                     TokenType::RightParen, 
                     "Expected ')' after expression",
                     "Every opening parenthesis '(' must have a matching closing parenthesis ')'.".to_string()
                 )?;
-                Ok(Expr::Grouping {
-                    expr: Box::new(expr),
-                    span: Span::new(start_span.start, end_token.span.end),
-                })
+                
+                if is_tuple {
+                    // This is a tuple: (a, b) or (a,)
+                    Ok(Expr::Tuple {
+                        elements,
+                        span: Span::new(start_span.start, end_token.span.end),
+                    })
+                } else {
+                    // This is just a grouping: (a)
+                    Ok(Expr::Grouping {
+                        expr: Box::new(elements.into_iter().next().unwrap()),
+                        span: Span::new(start_span.start, end_token.span.end),
+                    })
+                }
             }
             TokenType::LeftBracket => {
                 self.list_literal(token.span)

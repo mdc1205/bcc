@@ -1,0 +1,39 @@
+print("=== Tuple Creation Tests ===")
+t1 = ()
+print("Empty tuple:", t1)
+print("Type:", type(t1))
+
+t2 = (42,)  
+print("Single element tuple:", t2)
+print("Type:", type(t2))
+
+t3 = (1, 2, 3)
+print("Multi-element tuple:", t3)
+print("Type:", type(t3))
+
+print("=== Tuple Membership Tests ===")
+print("2 in (1, 2, 3):", 2 in (1, 2, 3))
+print("4 in (1, 2, 3):", 4 in (1, 2, 3))
+print("hello in tuple:", "hello" in ("hi", "hello", "world"))
+
+print("=== Tuple Equality Tests ===")
+print("(1, 2, 3) == (1, 2, 3):", (1, 2, 3) == (1, 2, 3))
+print("(1, 2, 3) == (1, 2, 4):", (1, 2, 3) == (1, 2, 4))
+print("() == ():", () == ())
+
+print("=== Divmod Function Tests ===")
+result = divmod(17, 5)
+print("divmod(17, 5):", result)
+print("Type of result:", type(result))
+
+result2 = divmod(10, 3)
+print("divmod(10, 3):", result2)
+
+print("=== Mixed Operations ===")
+coords = (10, 20, 30)
+print("Coordinates:", coords)
+print("Is 20 in coordinates?", 20 in coords)
+print("Is coordinates truthy?", coords and true)
+
+empty = ()
+print("Is empty tuple truthy?", empty and true)

@@ -63,6 +63,7 @@ impl Evaluator {
         evaluator.environment.assign("len", Value::String("__builtin_len__".to_string())).unwrap();
         evaluator.environment.assign("type", Value::String("__builtin_type__".to_string())).unwrap();
         evaluator.environment.assign("case", Value::String("__builtin_case__".to_string())).unwrap();
+        evaluator.environment.assign("divmod", Value::String("__builtin_divmod__".to_string())).unwrap();
         
         evaluator
     }
@@ -293,6 +294,21 @@ impl Evaluator {
                                 result: Box::new(Value::Nil),
                             }));
                         },
+                        "__builtin_divmod__" => {
+                            // Handle divmod built-in without kwargs (default rounding mode)
+                            if args.len() != 2 {
+                                return Err(BccError::runtime_error_with_help(
+                                    span.clone(),
+                                    format!("divmod() takes exactly 2 arguments, got {}", args.len()),
+                                    "Usage: divmod(dividend, divisor) - use divmod(a, b, round_mode=\"up\") for keyword arguments.".to_string(),
+                                ));
+                            }
+                            
+                            let dividend = self.evaluate_expression(&args[0])?;
+                            let divisor = self.evaluate_expression(&args[1])?;
+                            
+                            return self.builtin_divmod(dividend, divisor, "down".to_string(), span);
+                        },
                         _ => {}
                     }
                 }
@@ -352,6 +368,207 @@ impl Evaluator {
                     )),
                 }
             }
+            Expr::MultiAssign { targets, value, span } => {
+                let values = self.evaluate_expression(value)?;
+                
+                // Handle multi-assignment unpacking
+                let unpacked_values = match &values {
+                    Value::Tuple(tuple_values) => tuple_values.clone(),
+                    Value::List(list_values) => list_values.clone(),
+                    single_value => vec![single_value.clone()], // Single value gets wrapped in a list
+                };
+                
+                // Check if we have the right number of values
+                let non_ignore_targets = targets.iter().filter(|t| matches!(t, crate::ast::AssignTarget::Variable { .. })).count();
+                
+                if unpacked_values.len() < non_ignore_targets {
+                    return Err(BccError::runtime_error_with_help(
+                        span.clone(),
+                        format!("Not enough values to unpack (expected {}, got {})", targets.len(), unpacked_values.len()),
+                        "Multi-assignment requires the same number of values as targets. Use _ to ignore extra values.".to_string(),
+                    ));
+                }
+                
+                // Assign values to targets
+                for (i, target) in targets.iter().enumerate() {
+                    match target {
+                        crate::ast::AssignTarget::Variable { name, .. } => {
+                            if i < unpacked_values.len() {
+                                self.environment.assign(name, unpacked_values[i].clone())?;
+                            }
+                        }
+                        crate::ast::AssignTarget::Ignore { .. } => {
+                            // Ignore this value
+                        }
+                    }
+                }
+                
+                // Return the original tuple/list for chaining
+                Ok(values)
+            }
+            Expr::CallWithKwargs { callee, positional_args, keyword_args, span } => {
+                let function_value = self.evaluate_expression(callee)?;
+                
+                // Check if it's a built-in function
+                if let Value::String(name) = function_value {
+                    match name.as_str() {
+                        "__builtin_divmod__" => {
+                            // Example builtin showcasing kwargs: divmod(a, b, round_mode="down") 
+                            if positional_args.len() != 2 {
+                                return Err(BccError::runtime_error_with_help(
+                                    span.clone(),
+                                    format!("divmod() takes exactly 2 positional arguments, got {}", positional_args.len()),
+                                    "Usage: divmod(dividend, divisor, round_mode=\"down\")".to_string(),
+                                ));
+                            }
+                            
+                            let dividend = self.evaluate_expression(&positional_args[0])?;
+                            let divisor = self.evaluate_expression(&positional_args[1])?;
+                            
+                            // Parse keyword arguments for rounding mode
+                            let mut round_mode = "down".to_string();
+                            for kwarg in keyword_args {
+                                match kwarg.name.as_str() {
+                                    "round_mode" => {
+                                        let mode_value = self.evaluate_expression(&kwarg.value)?;
+                                        if let Value::String(mode) = mode_value {
+                                            round_mode = mode;
+                                        } else {
+                                            return Err(BccError::runtime_error_with_help(
+                                                span.clone(),
+                                                "round_mode must be a string".to_string(),
+                                                "Valid round modes: \"down\", \"up\", \"nearest\"".to_string(),
+                                            ));
+                                        }
+                                    }
+                                    _ => {
+                                        return Err(BccError::runtime_error_with_help(
+                                            span.clone(),
+                                            format!("Unknown keyword argument '{}' for divmod()", kwarg.name),
+                                            "Valid keyword arguments: round_mode".to_string(),
+                                        ));
+                                    }
+                                }
+                            }
+                            
+                            // Perform division with the specified rounding mode
+                            return self.builtin_divmod(dividend, divisor, round_mode, span);
+                        }
+                        _ => {
+                            // For now, fall back to regular call handling for other builtins
+                            // This allows kwargs calls to regular functions to work
+                            let all_args = positional_args.clone();
+                            
+                            // For now, we'll ignore keyword args for non-kwargs builtins
+                            // In a real implementation, you'd validate the kwargs
+                            if !keyword_args.is_empty() {
+                                return Err(BccError::runtime_error_with_help(
+                                    span.clone(),
+                                    format!("Function '{}' does not accept keyword arguments", name.replace("__builtin_", "").replace("__", "")),
+                                    "Only some built-in functions support keyword arguments.".to_string(),
+                                ));
+                            }
+                            
+                            // Reuse the regular call logic
+                            return self.evaluate_expression(&Expr::Call {
+                                callee: Box::new(Expr::Variable { 
+                                    name: name.clone(), 
+                                    span: callee.span().clone() 
+                                }),
+                                args: all_args,
+                                span: span.clone(),
+                            });
+                        }
+                    }
+                }
+                
+                Err(BccError::runtime_error_with_help(
+                    span.clone(),
+                    "User-defined functions with kwargs not yet implemented".to_string(),
+                    "Only built-in functions support keyword arguments currently.".to_string(),
+                ))
+            }
+            Expr::MultiReturn { values, .. } => {
+                let mut result_values = Vec::new();
+                for value_expr in values {
+                    result_values.push(self.evaluate_expression(value_expr)?);
+                }
+                Ok(Value::Tuple(result_values))
+            }
+            Expr::Tuple { elements, .. } => {
+                let mut tuple_values = Vec::new();
+                for element in elements {
+                    tuple_values.push(self.evaluate_expression(element)?);
+                }
+                Ok(Value::Tuple(tuple_values))
+            }
+        }
+    }
+
+    fn builtin_divmod(&self, dividend: Value, divisor: Value, round_mode: String, span: &Span) -> Result<Value, BccError> {
+        let dividend_type = dividend.type_name();
+        let divisor_type = divisor.type_name();
+        match (dividend, divisor) {
+            (Value::Int(a), Value::Int(b)) => {
+                if b == 0 {
+                    return Err(BccError::runtime_error(
+                        span.clone(),
+                        "Division by zero".to_string(),
+                    ));
+                }
+                
+                let (quotient, remainder) = match round_mode.as_str() {
+                    "down" => (a / b, a % b),
+                    "up" => {
+                        let q = if a * b >= 0 { (a + b - 1) / b } else { a / b };
+                        (q, a - q * b)
+                    }
+                    "nearest" => {
+                        let q = ((a as f64) / (b as f64)).round() as i64;
+                        (q, a - q * b)
+                    }
+                    _ => return Err(BccError::runtime_error_with_help(
+                        span.clone(),
+                        format!("Unknown rounding mode '{}'", round_mode),
+                        "Valid rounding modes: \"down\", \"up\", \"nearest\"".to_string(),
+                    )),
+                };
+                
+                Ok(Value::Tuple(vec![Value::Int(quotient), Value::Int(remainder)]))
+            }
+            (Value::Double(a), Value::Double(b)) => {
+                if b == 0.0 {
+                    return Err(BccError::runtime_error(
+                        span.clone(),
+                        "Division by zero".to_string(),
+                    ));
+                }
+                
+                let quotient = match round_mode.as_str() {
+                    "down" => (a / b).floor(),
+                    "up" => (a / b).ceil(),
+                    "nearest" => (a / b).round(),
+                    _ => return Err(BccError::runtime_error_with_help(
+                        span.clone(),
+                        format!("Unknown rounding mode '{}'", round_mode),
+                        "Valid rounding modes: \"down\", \"up\", \"nearest\"".to_string(),
+                    )),
+                };
+                let remainder = a - quotient * b;
+                
+                Ok(Value::Tuple(vec![Value::Double(quotient), Value::Double(remainder)]))
+            }
+            (Value::Int(a), Value::Double(b)) => {
+                self.builtin_divmod(Value::Double(a as f64), Value::Double(b), round_mode, span)
+            }
+            (Value::Double(a), Value::Int(b)) => {
+                self.builtin_divmod(Value::Double(a), Value::Double(b as f64), round_mode, span)
+            }
+            _ => Err(BccError::runtime_error_with_help(
+                span.clone(),
+                format!("divmod() not supported for types {} and {}", dividend_type, divisor_type),
+                "divmod() only works with numbers (int and double).".to_string(),
+            )),
         }
     }
 
@@ -581,10 +798,19 @@ impl Evaluator {
                     ))
                 }
             },
+            Value::Tuple(tuple) => {
+                // Check if left value is in the tuple
+                for item in &tuple {
+                    if self.is_equal(&left, item) {
+                        return Ok(Value::Bool(true));
+                    }
+                }
+                Ok(Value::Bool(false))
+            },
             _ => Err(BccError::runtime_error_with_help(
                 span.clone(),
                 format!("'in' operator not supported for type {}", right.type_name()),
-                "The 'in' operator works with lists, dictionaries, and strings. Examples: item in [1, 2, 3], \"key\" in {\"key\": \"value\"}, \"sub\" in \"substring\".".to_string(),
+                "The 'in' operator works with lists, tuples, dictionaries, and strings. Examples: item in [1, 2, 3], item in (1, 2, 3), \"key\" in {\"key\": \"value\"}, \"sub\" in \"substring\".".to_string(),
             ))
         }
     }
@@ -598,6 +824,21 @@ impl Evaluator {
             (Value::Int(l), Value::Double(r)) => (*l as f64) == *r,
             (Value::Double(l), Value::Int(r)) => *l == (*r as f64),
             (Value::String(l), Value::String(r)) => l == r,
+            (Value::List(l), Value::List(r)) => {
+                if l.len() != r.len() {
+                    false
+                } else {
+                    l.iter().zip(r.iter()).all(|(a, b)| self.is_equal(a, b))
+                }
+            },
+            (Value::Tuple(l), Value::Tuple(r)) => {
+                if l.len() != r.len() {
+                    false
+                } else {
+                    l.iter().zip(r.iter()).all(|(a, b)| self.is_equal(a, b))
+                }
+            },
+            // Note: We don't implement Dict equality here as it's complex and not essential for basic functionality
             _ => false,
         }
     }

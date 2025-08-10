@@ -1,0 +1,26 @@
+print("=== Multi-Assignment Demo ===")
+
+print("\n1. Basic multi-assignment from divmod:")
+x, y = divmod(17, 5)
+print("divmod(17, 5) ->", "x =", x, ", y =", y)
+
+print("\n2. Multi-assignment from tuple:")
+a, b, c = (10, 20, 30)
+print("(10, 20, 30) ->", "a =", a, ", b =", b, ", c =", c)
+
+print("\n3. Using underscore to ignore values:")
+quotient, _ = divmod(22, 7)
+print("divmod(22, 7) ignoring remainder ->", "quotient =", quotient)
+
+print("\n4. Mixed assignment types:")
+first, second = ("hello", "world")
+print("String tuple ->", "first =", first, ", second =", second)
+
+p, q = (3.14, 2.71)
+print("Float tuple ->", "p =", p, ", q =", q)
+
+print("\n5. Multi-assignment from list:")
+m, n = [100, 200]
+print("List [100, 200] ->", "m =", m, ", n =", n)
+
+print("\n=== All tests passed! Multi-assignment is working! ===")

@@ -1,1 +1,1 @@
-print(1)
+print("Testing basic divmod:") result = divmod(17, 5) print(result) print(type(result))

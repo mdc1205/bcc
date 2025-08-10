@@ -15,7 +15,7 @@ I'm looking to build an interpreter for a language very similar to lox. The thin
  - ✅ String concatenation and manipulation
  - ✅ Block scoping with proper environment handling
  - ✅ **Lists and Dictionaries**: Full support for collection literals `[1, 2, 3]` and `{"key": "value"}` with smart grammar disambiguation
- - ✅ **Built-in Functions**: `print()`, `len()`, `type()`, and `case()` functions with comprehensive type support
+ - ✅ **Built-in Functions**: `print()`, `len()`, `type()`, `case()`, and `divmod()` functions with comprehensive type support
  - ✅ **Unicode Support**: Full Unicode identifier support (Greek, Chinese, Arabic, etc.)
  - ✅ Clean modular architecture with small focused files
  - ✅ **Comprehensive Documentation**: Complete markdown documentation covering lexer, parser, evaluator, architecture, built-ins, and compiler fundamentals  
@@ -23,6 +23,9 @@ I'm looking to build an interpreter for a language very similar to lox. The thin
  - ✅ **Robust Parser**: Never crashes on any malformed input, always provides helpful error messages
  - ✅ **Comprehensive Test Suite**: 300+ test cases covering all edge cases and malformed input scenarios
  - ✅ **Case Function & Property Access**: `case()` built-in for conditional selection with `.result` property access
+ - ✅ **Keyword Arguments (kwargs)**: Function calls with named parameters and default values
+ - ✅ **Multi-Arity Return Values**: Functions returning multiple values with destructuring assignment
+ - ✅ **Tuple Support**: Native tuple type with full operations (creation, membership, equality)
 
 ## 🔨 CURRENT STATUS:
 The interpreter is fully functional with core language features working correctly. You can:
@@ -34,13 +37,17 @@ The interpreter is fully functional with core language features working correctl
 - Create and manipulate lists: `items = [1, 2.5, "hello"]`
 - Create and manipulate dictionaries: `person = {"name": "John", "age": 30}`
 - Use both `!` and `not` for logical negation: `not false` or `!false`
-- Call built-in functions: `print("Hello")`, `len([1,2,3])`, `type(42)`, `case(true, "yes", false, "no")`
+- Call built-in functions: `print("Hello")`, `len([1,2,3])`, `type(42)`, `case(true, "yes", false, "no")`, `divmod(17, 5)`
 - Use Unicode identifiers: `α = 3.14`, `中文 = "Chinese"`, `العربية = true`
 - Test membership: `2 in [1, 2, 3]`, `"key" in {"key": "value"}`, `"sub" in "string"`
 - Use case selection: `result = case(x > 10, "big", x > 5, "medium", true, "small")` then `result.result`
+- Create and manipulate tuples: `coords = (10, 20)`, `3 in (1, 2, 3, 4, 5)`
+- Use multi-return functions: `quotient, remainder = divmod(17, 5)` (when parser supports multi-assignment)
 
 ## 📋 REMAINING TASKS:
  - User-defined functions and function calls (built-ins work, but user-defined functions show "not yet implemented")
+ - Complete kwargs parser (evaluation logic implemented, syntax parsing needs minor fixes)
+ - Complete multi-assignment parser (evaluation logic implemented, top-level parsing needs work)
  - I want the ability to later add on a bytecode VM that would be easy to tie into the existing code (maybe separate the tree walk)
  - Simple design with a focus on smaller files for better understanding (I don't want 2k line files I would rather split things up)
 

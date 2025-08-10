@@ -137,6 +137,15 @@ pub enum AssignTarget {
     Ignore { span: Span },  // For underscore targets: a, _, c = expr
 }
 
+impl AssignTarget {
+    pub fn span(&self) -> &Span {
+        match self {
+            AssignTarget::Variable { span, .. } => span,
+            AssignTarget::Ignore { span } => span,
+        }
+    }
+}
+
 /// Represents a keyword argument in function calls: name=value
 #[derive(Debug, Clone)]
 pub struct KeywordArg {
