@@ -1,0 +1,22 @@
+[package]
+name = "bcc"
+version = "0.1.0"
+edition = "2021"
+
+# Main binary
+[[bin]]
+name = "bcc"
+path = "src/main.rs"
+
+# Test runner binary removed - tests now use cargo test
+
+# Library configuration
+[lib]
+name = "bcc"
+path = "src/lib.rs"
+
+[dependencies]
+ariadne = "0.4"
+clap = { version = "4.0", features = ["derive"] }
+
+# Integration tests are now in tests/integration_tests.rs

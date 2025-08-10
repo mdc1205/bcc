@@ -1,0 +1,13 @@
+x = [1, 2, 3]
+print("List length:", len(x))
+print("Type:", type(x))
+print("Contains 2:", 2 in x)
+
+data = {"name": "Test", "value": 42}
+print("Dict:", data)
+print("Has name key:", "name" in data)
+
+// Unicode support
+α = 3.14
+β = "Greek letters work\!"
+print(α, β)

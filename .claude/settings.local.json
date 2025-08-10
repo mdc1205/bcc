@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check:*)",
+      "Bash(cargo:*)",
+      "Bash(timeout 10 cargo run -- test.bcc)",
+      "Bash(del:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(C:Usersconnobcctargetdebugbcc.exe test_script.txt)",
+      "Bash(./target/debug/bcc.exe:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout 10s cargo run --quiet test_span.bcc)",
+      "Bash(timeout 10s cargo run --quiet test_span2.bcc)",
+      "Bash(grep:*)",
+      "Bash(timeout 5s cargo run --quiet test_error1.bcc)",
+      "Bash(timeout 5s cargo run --quiet test_error2.bcc)",
+      "Bash(timeout 5s cargo run --quiet test_error3.bcc)",
+      "Bash(timeout 5s cargo run --quiet test_error4.bcc)",
+      "Bash(timeout 5s cargo run --quiet test_error5.bcc)",
+      "Bash(timeout 5s cargo run --quiet test_error6.bcc)",
+      "Bash(timeout 10 cargo run debug_test.bcc)",
+      "Bash(mkdir:*)",
+      "Bash(rustc:*)",
+      "Bash(./debug_tokens.exe)",
+      "Bash(timeout 10s cargo run --bin test-parser-robustness)",
+      "Bash(timeout 30s cargo run --bin test-parser-robustness)",
+      "Bash(./target/release/bcc.exe test_in.bcc:*)",
+      "Bash(./target/release/bcc.exe test_in_errors.bcc:*)",
+      "Bash(./target/release/bcc.exe test_precedence.bcc:*)",
+      "Bash(./test_simple.exe)"
+    ],
+    "deny": []
+  }
+}
